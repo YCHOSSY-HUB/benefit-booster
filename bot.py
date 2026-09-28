@@ -1,19 +1,22 @@
 import os
+import inspect
+import asyncio
+
 import discord
 from discord.ext import commands
 from dotenv import load_dotenv
 
 from database import init_database
+from booster import Booster, BoosterPanelView
 
 
 # =========================================================
-# LOAD ENV
+# ENVIRONMENT
 # =========================================================
 
 load_dotenv()
 
 TOKEN = os.getenv("DISCORD_TOKEN")
-
 
 if not TOKEN:
     raise RuntimeError(
@@ -44,103 +47,63 @@ bot = commands.Bot(
 
 
 # =========================================================
-# LOAD EXTENSIONS
+# DATABASE
 # =========================================================
 
-async def load_extensions():
+def setup_database():
+    try:
+        init_database()
+        print("✅ Database berhasil diinisialisasi.")
+    except Exception as e:
+        print(f"❌ Database Error: {e}")
 
-    print("=" * 50)
-    print("🔄 Memuat extension...")
-    print("=" * 50)
+
+# =========================================================
+# LOAD BOOSTER COG
+# =========================================================
+
+async def setup_booster():
 
     try:
+        print("🔄 Memuat Booster Custom Role...")
 
-        await bot.load_extension("booster")
+        # -------------------------------------------------
+        # Tambahkan Cog
+        # -------------------------------------------------
 
-        print(
-            "✅ booster.py berhasil dimuat."
+        result = bot.add_cog(
+            Booster(bot)
         )
+
+        # Kompatibel dengan discord.py maupun Pycord
+        if inspect.isawaitable(result):
+            await result
+
+        print("✅ Booster Custom Role berhasil dimuat.")
+
+        # -------------------------------------------------
+        # Persistent View
+        # -------------------------------------------------
+
+        try:
+            bot.add_view(
+                BoosterPanelView()
+            )
+
+            print("✅ Booster Panel persistent view berhasil dimuat.")
+
+        except Exception as e:
+            print(
+                f"⚠️ Persistent view gagal dimuat: {e}"
+            )
 
     except Exception as e:
 
         print(
-            "❌ GAGAL memuat booster.py!"
-        )
-
-        print(
-            f"❌ Error: {type(e).__name__}: {e}"
+            f"❌ Gagal memuat Booster Custom Role: {e}"
         )
 
         raise
-
-
-    # =====================================================
-    # CEK COMMAND YANG TERDAFTAR
-    # =====================================================
-
-    print("=" * 50)
-    print("📋 COMMAND YANG TERDAFTAR")
-    print("=" * 50)
-
-    if not bot.commands:
-
-        print(
-            "⚠️ TIDAK ADA COMMAND YANG TERDAFTAR!"
-        )
-
-    else:
-
-        for command in bot.commands:
-
-            print(
-                f"   !{command.name}"
-            )
-
-    print("=" * 50)
-
-
-# =========================================================
-# ON MESSAGE
-# =========================================================
-#
-# Kita proses command prefix secara manual.
-#
-# !setupbooster
-#
-# akan diproses oleh:
-#
-# bot.process_commands(message)
-# =========================================================
-
-@bot.event
-async def on_message(
-    message: discord.Message
-):
-
-    # Jangan proses pesan dari bot
-
-    if message.author.bot:
-        return
-
-
-    # =====================================================
-    # DEBUG MESSAGE
-    # =====================================================
-
-    print(
-        f"📩 Message masuk | "
-        f"{message.author} | "
-        f"{message.content}"
-    )
-
-
-    # =====================================================
-    # PROCESS PREFIX COMMAND
-    # =====================================================
-
-    await bot.process_commands(
-        message
-    )
 
 
 # =========================================================
@@ -150,10 +113,10 @@ async def on_message(
 @bot.event
 async def on_ready():
 
-    print()
-    print("=" * 50)
-    print("🤖 BOT ONLINE")
-    print("=" * 50)
+    print("")
+    print("=" * 60)
+    print("🤖 YOBLOX BOOSTER BOT")
+    print("=" * 60)
 
     print(
         f"🤖 Bot       : {bot.user}"
@@ -167,52 +130,41 @@ async def on_ready():
         f"🌐 Server    : {len(bot.guilds)}"
     )
 
-    print(
-        f"📋 Commands  : {len(bot.commands)}"
-    )
+    print("=" * 60)
 
-    print("=" * 50)
-
-
-    # =====================================================
+    # -----------------------------------------------------
     # DATABASE
-    # =====================================================
+    # -----------------------------------------------------
+
+    setup_database()
+
+    # -----------------------------------------------------
+    # STATUS
+    # -----------------------------------------------------
+
+    activity = discord.Activity(
+        type=discord.ActivityType.watching,
+        name="YOBLOX Booster"
+    )
 
     try:
 
-        init_database()
-
-        print(
-            "✅ Database berhasil diinisialisasi."
+        await bot.change_presence(
+            status=discord.Status.online,
+            activity=activity
         )
+
+        print("✅ Status bot berhasil diatur.")
 
     except Exception as e:
 
         print(
-            f"❌ Database Error: {e}"
+            f"⚠️ Gagal mengatur status bot: {e}"
         )
 
-
-    # =====================================================
-    # STATUS BOT
-    # =====================================================
-
-    activity = discord.Activity(
-
-        type=discord.ActivityType.watching,
-
-        name="YOBLOX Booster"
-
-    )
-
-
-    await bot.change_presence(
-
-        status=discord.Status.online,
-
-        activity=activity
-
-    )
+    print("=" * 60)
+    print("🟢 BOT ONLINE")
+    print("=" * 60)
 
 
 # =========================================================
@@ -221,76 +173,61 @@ async def on_ready():
 
 @bot.event
 async def on_command_error(
-    ctx: commands.Context,
+    ctx,
     error
 ):
 
-    # =====================================================
-    # COMMAND TIDAK DITEMUKAN
-    # =====================================================
-
+    # Command tidak ditemukan
     if isinstance(
         error,
         commands.CommandNotFound
     ):
-
-        print(
-            f"⚠️ Command tidak ditemukan: "
-            f"{ctx.message.content}"
-        )
-
         return
 
-
-    # =====================================================
-    # TIDAK PUNYA PERMISSION
-    # =====================================================
-
+    # Permission error
     if isinstance(
         error,
         commands.MissingPermissions
     ):
 
-        print(
-            f"⚠️ Tidak memiliki permission: "
-            f"{ctx.author}"
-        )
+        try:
 
-        await ctx.send(
-            "❌ Kamu tidak memiliki permission untuk menggunakan command ini.",
-            delete_after=5
-        )
+            await ctx.send(
+                "❌ Kamu tidak memiliki permission untuk menggunakan command ini.",
+                delete_after=5
+            )
+
+        except Exception:
+            pass
 
         return
 
-
-    # =====================================================
-    # ERROR COMMAND
-    # =====================================================
-
     print(
-        f"❌ Command Error: "
-        f"{type(error).__name__}: {error}"
+        f"❌ Command Error: {error}"
     )
 
 
 # =========================================================
-# START BOT
+# START
 # =========================================================
 
 async def main():
 
-    async with bot:
+    # -----------------------------------------------------
+    # Setup Booster sebelum login
+    # -----------------------------------------------------
 
-        await load_extensions()
+    await setup_booster()
 
-        print(
-            "🚀 Menjalankan bot..."
-        )
+    # -----------------------------------------------------
+    # Jalankan bot
+    # -----------------------------------------------------
 
-        await bot.start(
-            TOKEN
-        )
+    print("🔄 Menghubungkan bot ke Discord...")
+
+    await bot.start(
+        TOKEN
+    )
 
 
 # =========================================================
@@ -298,8 +235,6 @@ async def main():
 # =========================================================
 
 if __name__ == "__main__":
-
-    import asyncio
 
     try:
 
@@ -311,4 +246,10 @@ if __name__ == "__main__":
 
         print(
             "🛑 Bot dihentikan."
+        )
+
+    except Exception as e:
+
+        print(
+            f"❌ Fatal Error: {e}"
         )
