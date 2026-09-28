@@ -1182,7 +1182,7 @@ class Booster(
                 "📜 **KETENTUAN**\n"
 
                 "1. Custom Role tersedia untuk "
-                "**Server Booster dan Administrator**.\n\n"
+                "**Server Booster**.\n\n"
 
                 "2. Dilarang menggunakan nama yang "
                 "mengandung unsur **SARA, penghinaan, "
