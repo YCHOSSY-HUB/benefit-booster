@@ -57,7 +57,7 @@ def is_booster(member: discord.Member):
 
 def can_use_custom_role(member: discord.Member):
     """
-    Custom Role dapat digunakan oleh:
+    Custom Role bisa digunakan oleh:
     - Server Booster
     - Administrator
     """
@@ -79,7 +79,7 @@ def get_donatur_role(guild: discord.Guild):
 
 
 # =========================================================
-# MODAL NAMA ROLE
+# CREATE ROLE MODAL
 # =========================================================
 
 class CreateRoleModal(discord.ui.Modal):
@@ -104,10 +104,6 @@ class CreateRoleModal(discord.ui.Modal):
 
     # =====================================================
     # PYCORD MODAL CALLBACK
-    #
-    # PENTING:
-    # Pycord menggunakan callback()
-    # bukan on_submit()
     # =====================================================
 
     async def callback(
@@ -149,8 +145,7 @@ class CreateRoleModal(discord.ui.Modal):
 
         # =================================================
         # CEK AKSES
-        #
-        # BOOSTER ATAU ADMINISTRATOR
+        # BOOSTER ATAU ADMIN
         # =================================================
 
         if not can_use_custom_role(member):
@@ -192,8 +187,8 @@ class CreateRoleModal(discord.ui.Modal):
 
                 return
 
-            # Database punya data,
-            # tetapi role Discord sudah tidak ada.
+            # Database masih punya data,
+            # tetapi role Discord sudah hilang.
 
             delete_booster_role(
                 guild.id,
@@ -216,7 +211,7 @@ class CreateRoleModal(discord.ui.Modal):
             return
 
         # =================================================
-        # CEK MANAGE ROLE
+        # MANAGE ROLES
         # =================================================
 
         if not me.guild_permissions.manage_roles:
@@ -278,17 +273,18 @@ class CreateRoleModal(discord.ui.Modal):
                 return
 
         # =================================================
-        # LANJUT KE PILIHAN WARNA
+        # PEMILIHAN WARNA
         # =================================================
 
         await interaction.response.send_message(
 
             content=(
-                f"**Nama Role:** {role_name}\n\n"
-                "🎨 **Pilih Warna Pertama**\n"
-                "🎨 **Pilih Warna Kedua**\n\n"
-                "Silakan pilih kedua warna, "
-                "kemudian tekan **Submit**."
+                f"## 🎨 Custom Role\n\n"
+                f"**Nama Role:** `{role_name}`\n\n"
+                "Pilih **dua warna** untuk membuat gradient.\n\n"
+                "🌈 **Warna 1** → warna awal gradient\n"
+                "🌈 **Warna 2** → warna akhir gradient\n\n"
+                "Setelah memilih keduanya, tekan **Submit**."
             ),
 
             view=ColorSelectionView(
@@ -359,25 +355,25 @@ class ColorSelectionView(
         self.color_2 = None
 
         # =================================================
-        # SELECT WARNA 1
+        # COLOR SELECT 1
         # =================================================
 
         self.first_select = ColorSelect(
-            "Pilih Warna Pertama",
+            "🌈 Pilih Warna Pertama",
             "booster_color_first"
         )
 
         # =================================================
-        # SELECT WARNA 2
+        # COLOR SELECT 2
         # =================================================
 
         self.second_select = ColorSelect(
-            "Pilih Warna Kedua",
+            "🌈 Pilih Warna Kedua",
             "booster_color_second"
         )
 
         # =================================================
-        # CALLBACK SELECT
+        # CALLBACK
         # =================================================
 
         self.first_select.callback = (
@@ -389,7 +385,7 @@ class ColorSelectionView(
         )
 
         # =================================================
-        # ADD ITEM
+        # ADD SELECT
         # =================================================
 
         self.add_item(
@@ -401,7 +397,7 @@ class ColorSelectionView(
         )
 
     # =====================================================
-    # WARNA PERTAMA
+    # WARNA 1
     # =====================================================
 
     async def first_color_callback(
@@ -425,7 +421,7 @@ class ColorSelectionView(
         await interaction.response.defer()
 
     # =====================================================
-    # WARNA KEDUA
+    # WARNA 2
     # =====================================================
 
     async def second_color_callback(
@@ -457,7 +453,7 @@ class ColorSelectionView(
 
     @discord.ui.button(
         label="Submit",
-        emoji="✅",
+        emoji="🌈",
         style=discord.ButtonStyle.success,
         custom_id="booster_submit_color"
     )
@@ -484,20 +480,26 @@ class ColorSelectionView(
         # CEK WARNA
         # =================================================
 
-        if not self.color_1 or not self.color_2:
+        if not self.color_1:
 
             await interaction.response.send_message(
-                (
-                    "❌ Silakan pilih **kedua warna** "
-                    "terlebih dahulu."
-                ),
+                "❌ Silakan pilih **Warna 1** terlebih dahulu.",
+                ephemeral=True
+            )
+
+            return
+
+        if not self.color_2:
+
+            await interaction.response.send_message(
+                "❌ Silakan pilih **Warna 2** terlebih dahulu.",
                 ephemeral=True
             )
 
             return
 
         # =================================================
-        # CEK SERVER
+        # SERVER
         # =================================================
 
         guild = interaction.guild
@@ -512,7 +514,7 @@ class ColorSelectionView(
             return
 
         # =================================================
-        # AMBIL MEMBER TERBARU
+        # MEMBER
         # =================================================
 
         member = guild.get_member(
@@ -530,8 +532,6 @@ class ColorSelectionView(
 
         # =================================================
         # CEK AKSES LAGI
-        #
-        # BOOSTER ATAU ADMINISTRATOR
         # =================================================
 
         if not can_use_custom_role(member):
@@ -579,7 +579,7 @@ class ColorSelectionView(
             )
 
         # =================================================
-        # CEK BOT
+        # BOT
         # =================================================
 
         me = guild.me
@@ -610,38 +610,45 @@ class ColorSelectionView(
             return
 
         # =================================================
-        # CREATE ROLE
+        # CREATE GRADIENT ROLE
         # =================================================
 
         try:
 
-            color_1 = get_color(
+            primary_color = get_color(
                 self.color_1
             )
 
-            # Warna kedua disimpan untuk pilihan UI.
-            # Discord Role biasa menggunakan warna utama.
-            color_2 = get_color(
+            secondary_color = get_color(
                 self.color_2
             )
 
-            # Supaya tidak dianggap unused
-            _ = color_2
+            # =================================================
+            # GRADIENT
+            #
+            # Pycord menggunakan RoleColours:
+            #
+            # primary   = warna pertama
+            # secondary = warna kedua
+            # =================================================
 
-            final_color = color_1
+            gradient_colors = discord.RoleColours(
+                primary=primary_color,
+                secondary=secondary_color
+            )
 
             # =================================================
-            # BUAT ROLE
+            # CREATE ROLE
             # =================================================
 
             role = await guild.create_role(
 
                 name=self.role_name,
 
-                colour=final_color,
+                colors=gradient_colors,
 
                 reason=(
-                    "Custom Role - "
+                    "Booster Custom Gradient Role - "
                     f"{member} ({member.id})"
                 )
 
@@ -661,6 +668,7 @@ class ColorSelectionView(
                     donatur_role.position + 1
                 )
 
+                # Bot harus berada di atas role
                 if (
                     target_position
                     < me.top_role.position
@@ -671,12 +679,15 @@ class ColorSelectionView(
                         position=target_position,
 
                         reason=(
-                            "Custom Role Position"
+                            "Custom Gradient Role Position"
                         )
 
                     )
 
             else:
+
+                # Jika Donatur Role tidak ditemukan,
+                # letakkan di bawah role tertinggi bot.
 
                 target_position = max(
                     1,
@@ -693,13 +704,13 @@ class ColorSelectionView(
                         position=target_position,
 
                         reason=(
-                            "Custom Role Position"
+                            "Custom Gradient Role Position"
                         )
 
                     )
 
             # =================================================
-            # TAMBAHKAN ROLE KE MEMBER
+            # TAMBAHKAN KE MEMBER
             # =================================================
 
             await member.add_roles(
@@ -707,7 +718,7 @@ class ColorSelectionView(
                 role,
 
                 reason=(
-                    "Custom Role"
+                    "Booster Custom Gradient Role"
                 )
 
             )
@@ -715,13 +726,8 @@ class ColorSelectionView(
             # =================================================
             # SIMPAN DATABASE
             #
-            # database.py kamu menggunakan:
-            #
-            # save_booster_role(
-            #     guild_id,
-            #     user_id,
-            #     role_id
-            # )
+            # Database kamu sekarang menggunakan:
+            # guild_id, user_id, role_id
             # =================================================
 
             save_booster_role(
@@ -742,13 +748,16 @@ class ColorSelectionView(
 
                 content=(
 
-                    "## ✅ Custom Role Berhasil Dibuat!\n\n"
+                    "## 🌈 Custom Gradient Role Berhasil!\n\n"
 
-                    f"🎨 **Nama:** {role.mention}\n"
+                    f"🎨 **Role:** {role.mention}\n\n"
 
-                    f"🔹 **Warna 1:** {self.color_1}\n"
+                    f"🟣 **Warna 1:** {self.color_1}\n"
 
-                    f"🔹 **Warna 2:** {self.color_2}\n\n"
+                    f"🟢 **Warna 2:** {self.color_2}\n\n"
+
+                    "✨ Role kamu sekarang menggunakan "
+                    "**Gradient Style**.\n\n"
 
                     "Role sudah diberikan kepada kamu."
 
@@ -759,7 +768,7 @@ class ColorSelectionView(
             )
 
         # =================================================
-        # FORBIDDEN
+        # PERMISSION / ENHANCED ROLE STYLE ERROR
         # =================================================
 
         except discord.Forbidden:
@@ -767,9 +776,10 @@ class ColorSelectionView(
             await interaction.response.send_message(
 
                 (
-                    "❌ Bot tidak memiliki permission "
-                    "yang cukup untuk membuat atau "
-                    "mengatur role."
+                    "❌ Discord menolak pembuatan Gradient Role.\n\n"
+                    "Pastikan bot memiliki **Manage Roles** "
+                    "dan server sudah mengaktifkan "
+                    "**Enhanced Role Styles**."
                 ),
 
                 ephemeral=True
@@ -788,7 +798,11 @@ class ColorSelectionView(
 
             await interaction.response.send_message(
 
-                "❌ Terjadi kesalahan saat membuat Custom Role.",
+                (
+                    "❌ Gradient Role gagal dibuat.\n\n"
+                    "Pastikan **Enhanced Role Styles** "
+                    "sudah aktif di server."
+                ),
 
                 ephemeral=True
 
@@ -801,12 +815,15 @@ class ColorSelectionView(
         except Exception as e:
 
             print(
-                f"❌ Create Role Error: {e}"
+                f"❌ Gradient Role Error: {e}"
             )
 
             await interaction.response.send_message(
 
-                "❌ Terjadi kesalahan internal.",
+                (
+                    "❌ Terjadi kesalahan saat membuat "
+                    "Gradient Role."
+                ),
 
                 ephemeral=True
 
@@ -814,7 +831,7 @@ class ColorSelectionView(
 
 
 # =========================================================
-# BOOSTER PANEL VIEW
+# BOOSTER PANEL
 # =========================================================
 
 class BoosterPanelView(
@@ -829,9 +846,6 @@ class BoosterPanelView(
 
     # =====================================================
     # BUAT ROLE
-    #
-    # PYCORD:
-    # self, button, interaction
     # =====================================================
 
     @discord.ui.button(
@@ -880,8 +894,6 @@ class BoosterPanelView(
 
         # =================================================
         # AKSES
-        #
-        # BOOSTER ATAU ADMINISTRATOR
         # =================================================
 
         if not can_use_custom_role(member):
@@ -938,9 +950,6 @@ class BoosterPanelView(
 
     # =====================================================
     # HAPUS ROLE
-    #
-    # PYCORD:
-    # self, button, interaction
     # =====================================================
 
     @discord.ui.button(
@@ -973,8 +982,6 @@ class BoosterPanelView(
 
         # =================================================
         # AKSES
-        #
-        # BOOSTER ATAU ADMINISTRATOR
         # =================================================
 
         if not can_use_custom_role(member):
@@ -990,7 +997,7 @@ class BoosterPanelView(
             return
 
         # =================================================
-        # CEK DATABASE
+        # DATABASE
         # =================================================
 
         existing = get_booster_role(
@@ -1008,7 +1015,7 @@ class BoosterPanelView(
             return
 
         # =================================================
-        # HAPUS ROLE
+        # DELETE
         # =================================================
 
         try:
@@ -1020,7 +1027,7 @@ class BoosterPanelView(
             if role:
 
                 # =================================================
-                # CEK HIERARCHY
+                # HIERARCHY
                 # =================================================
 
                 if (
@@ -1040,13 +1047,13 @@ class BoosterPanelView(
                     return
 
                 # =================================================
-                # DELETE ROLE DISCORD
+                # DELETE ROLE
                 # =================================================
 
                 await role.delete(
 
                     reason=(
-                        "Custom Role deleted by "
+                        "Custom Gradient Role deleted by "
                         f"{member}"
                     )
 
@@ -1131,7 +1138,7 @@ class Booster(
         self.bot = bot
 
     # =====================================================
-    # SETUP BOOSTER PANEL
+    # SETUP PANEL
     # =====================================================
 
     @commands.command(
@@ -1163,12 +1170,14 @@ class Booster(
 
                 "✨ **FITUR**\n"
 
-                "• Buat role dengan nama pilihanmu\n"
-                "• Pilih dua warna untuk Custom Role\n"
-                "• Custom Role khusus Server Booster\n"
-                "• Administrator juga dapat menggunakan fitur\n"
-                "• Bisa menghapus role sendiri\n"
-                "• 1 member hanya dapat memiliki 1 Custom Role\n\n"
+                "• Buat Custom Role\n"
+                "• Gradient dua warna 🌈\n"
+                "• Pilih warna pertama\n"
+                "• Pilih warna kedua\n"
+                "• Server Booster dapat menggunakan fitur\n"
+                "• Administrator dapat menggunakan fitur\n"
+                "• Hapus Custom Role sendiri\n"
+                "• 1 member hanya dapat memiliki 1 role\n\n"
 
                 "📜 **KETENTUAN**\n"
 
@@ -1189,8 +1198,8 @@ class Booster(
                 "⚠️ Role yang melanggar ketentuan dapat "
                 "**dihapus tanpa pemberitahuan**.\n\n"
 
-                "💎 Terima kasih sudah support "
-                "**YOBLOX**!"
+                "🌈 Gunakan dua warna untuk membuat "
+                "**Gradient Role** yang unik!"
 
             ),
 
@@ -1211,7 +1220,7 @@ class Booster(
         )
 
         # =================================================
-        # SEND PANEL
+        # SEND
         # =================================================
 
         await ctx.send(
@@ -1223,7 +1232,7 @@ class Booster(
         )
 
         # =================================================
-        # HAPUS COMMAND
+        # DELETE COMMAND
         # =================================================
 
         try:
@@ -1280,8 +1289,9 @@ async def setup(
         Booster(bot)
     )
 
-    # Kompatibel dengan Pycord / environment
-    # yang membuat add_cog menjadi coroutine.
+    # Kompatibel dengan Pycord
+    # maupun environment yang membuat
+    # add_cog menjadi coroutine.
 
     if hasattr(
         result,
